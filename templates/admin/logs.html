@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Security Audit Logs — BotGuard CM Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Top Header ──────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-0 d-inline-flex align-items-center">
+        <i class="bi bi-journal-text me-2 text-accent"></i>Security Audit Logs
+      </h1>
+      <p class="text-muted small mb-0">Complete historical security event trail with pagination and multi-criteria filtering</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-secondary-subtle text-light border border-secondary px-3 py-2 rounded-pill">
+        <strong>{{ total_matched }}</strong> Logged Event{{ 's' if total_matched != 1 else '' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Admin Navigation Sub-bar ─────────────────────────────────────────── -->
+  <div class="glass-card p-2 mb-4">
+    <ul class="nav nav-pills gap-1 flex-wrap">
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.dashboard') }}">
+          <i class="bi bi-speedometer2 me-1"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('admin.logs') }}">
+          <i class="bi bi-journal-text me-1"></i>Security Logs
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.users') }}">
+          <i class="bi bi-people me-1"></i>Users
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.blocked_ips') }}">
+          <i class="bi bi-slash-circle me-1"></i>Blocked IPs
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── Search & Filter Card ────────────────────────────────────────────── -->
+  <div class="glass-card p-3 mb-4">
+    <form method="GET" action="{{ url_for('admin.logs') }}" class="row g-2 align-items-end" id="logsFilterForm">
+      
+      <!-- Event Type -->
+      <div class="col-12 col-sm-6 col-md-3 col-xl-2">
+        <label for="logEventType" class="form-label text-muted fs-xs mb-1">Event Type</label>
+        <select name="event_type" id="logEventType" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_event_type or selected_event_type == 'all' %}selected{% endif %}>All Events</option>
+          <option value="login_success" {% if selected_event_type == 'login_success' %}selected{% endif %}>Login Success</option>
+          <option value="login_failure" {% if selected_event_type == 'login_failure' %}selected{% endif %}>Login Failure</option>
+          <option value="logout" {% if selected_event_type == 'logout' %}selected{% endif %}>Logout</option>
+          <option value="register_success" {% if selected_event_type == 'register_success' %}selected{% endif %}>Registration</option>
+          <option value="captcha_success" {% if selected_event_type == 'captcha_success' %}selected{% endif %}>CAPTCHA Success</option>
+          <option value="captcha_failure" {% if selected_event_type == 'captcha_failure' %}selected{% endif %}>CAPTCHA Failure</option>
+          <option value="bot_detected" {% if selected_event_type == 'bot_detected' %}selected{% endif %}>Bot Detected</option>
+          <option value="rate_limit_exceeded" {% if selected_event_type == 'rate_limit_exceeded' %}selected{% endif %}>Rate Limit Exceeded</option>
+          <option value="ip_blocked" {% if selected_event_type == 'ip_blocked' %}selected{% endif %}>IP Blocked</option>
+          <option value="ip_unblocked" {% if selected_event_type == 'ip_unblocked' %}selected{% endif %}>IP Unblocked</option>
+        </select>
+      </div>
+
+      <!-- Risk Level -->
+      <div class="col-12 col-sm-6 col-md-3 col-xl-2">
+        <label for="logRiskLevel" class="form-label text-muted fs-xs mb-1">Risk Level</label>
+        <select name="risk_level" id="logRiskLevel" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_risk_level or selected_risk_level == 'all' %}selected{% endif %}>All Risk Levels</option>
+          <option value="NORMAL" {% if selected_risk_level == 'NORMAL' %}selected{% endif %}>NORMAL (0–30)</option>
+          <option value="SUSPICIOUS" {% if selected_risk_level == 'SUSPICIOUS' %}selected{% endif %}>SUSPICIOUS (31–60)</option>
+          <option value="HIGH_RISK" {% if selected_risk_level == 'HIGH_RISK' %}selected{% endif %}>HIGH RISK (61–100)</option>
+        </select>
+      </div>
+
+      <!-- Status -->
+      <div class="col-12 col-sm-6 col-md-3 col-xl-1">
+        <label for="logStatus" class="form-label text-muted fs-xs mb-1">Status</label>
+        <select name="status" id="logStatus" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_status or selected_status == 'all' %}selected{% endif %}>All</option>
+          <option value="success" {% if selected_status == 'success' %}selected{% endif %}>Success</option>
+          <option value="failure" {% if selected_status == 'failure' %}selected{% endif %}>Failure</option>
+          <option value="blocked" {% if selected_status == 'blocked' %}selected{% endif %}>Blocked</option>
+          <option value="warning" {% if selected_status == 'warning' %}selected{% endif %}>Warning</option>
+        </select>
+      </div>
+
+      <!-- Date From -->
+      <div class="col-12 col-sm-6 col-md-3 col-xl-2">
+        <label for="logDateFrom" class="form-label text-muted fs-xs mb-1">Date From</label>
+        <input type="date" name="date_from" id="logDateFrom" class="form-control form-control-sm bcms-input"
+               value="{{ date_from or '' }}" />
+      </div>
+
+      <!-- Date To -->
+      <div class="col-12 col-sm-6 col-md-3 col-xl-2">
+        <label for="logDateTo" class="form-label text-muted fs-xs mb-1">Date To</label>
+        <input type="date" name="date_to" id="logDateTo" class="form-control form-control-sm bcms-input"
+               value="{{ date_to or '' }}" />
+      </div>
+
+      <!-- IP / Search -->
+      <div class="col-12 col-sm-6 col-md-5 col-xl-2">
+        <label for="logSearch" class="form-label text-muted fs-xs mb-1">IP or Keyword</label>
+        <input type="text" name="q" id="logSearch" class="form-control form-control-sm bcms-input"
+               placeholder="IP, path, keyword..." value="{{ search_query or '' }}" />
+      </div>
+
+      <!-- Buttons -->
+      <div class="col-12 col-sm-6 col-md-4 col-xl-1 d-flex gap-1">
+        <button type="submit" class="btn btn-sm btn-accent flex-grow-1" id="applyLogFilterBtn" title="Apply Filters">
+          <i class="bi bi-funnel-fill"></i>
+        </button>
+        {% if selected_event_type or selected_risk_level or selected_status or ip_filter or search_query or date_from or date_to %}
+          <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-secondary" id="clearLogFilterBtn" title="Clear Filters">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- ── Table Card ──────────────────────────────────────────────────────── -->
+  <div class="glass-card p-4">
+    {% if events %}
+      <div class="table-responsive">
+        <table class="table table-dark table-hover bcms-table align-middle mb-0" id="adminLogsTable">
+          <thead>
+            <tr>
+              <th style="width: 5%;">ID</th>
+              <th style="width: 16%;">Event Type</th>
+              <th style="width: 28%;">Description & Endpoint</th>
+              <th style="width: 16%;">IP & User Agent</th>
+              <th style="width: 10%;">Status</th>
+              <th style="width: 11%;">Risk Score</th>
+              <th style="width: 14%;">Timestamp (UTC)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ev in events %}
+            <tr>
+              <td class="font-mono text-muted small">#{{ ev.id }}</td>
+              <td>
+                <span class="event-type-badge event-{{ ev.event_type }}">
+                  {{ ev.event_type | replace('_', ' ') | title }}
+                </span>
+              </td>
+              <td>
+                <div class="text-light small fw-medium">{{ ev.description or 'No description' }}</div>
+                {% if ev.endpoint %}
+                  <div class="text-muted fs-xs font-mono mt-1">{{ ev.endpoint }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="font-mono small text-info">{{ ev.ip_address }}</div>
+                {% if ev.user_agent %}
+                  <div class="text-muted fs-xs text-truncate" style="max-width: 200px;" title="{{ ev.user_agent }}">
+                    {{ ev.user_agent[:45] }}{% if ev.user_agent|length > 45 %}...{% endif %}
+                  </div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge status-badge status-{{ ev.status }}">
+                  {{ ev.status | title }}
+                </span>
+              </td>
+              <td>
+                <span class="badge risk-badge risk-{{ ev.risk_level }}">
+                  {{ ev.risk_level }} ({{ ev.risk_score }})
+                </span>
+              </td>
+              <td class="text-muted small font-mono">
+                {{ ev.created_at.strftime('%d %b %Y, %H:%M:%S') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Pagination ────────────────────────────────────────────────────── -->
+      {% if pagination and pagination.pages > 1 %}
+        <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+          <div class="text-muted small">
+            Showing Page <strong>{{ pagination.page }}</strong> of <strong>{{ pagination.pages }}</strong> ({{ pagination.total }} total events)
+          </div>
+
+          <nav aria-label="Log pages">
+            <ul class="pagination pagination-sm mb-0">
+              <!-- Prev -->
+              <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.logs', page=pagination.prev_num, event_type=selected_event_type, risk_level=selected_risk_level, status=selected_status, ip=ip_filter, q=search_query, date_from=date_from, date_to=date_to, per_page=per_page) if pagination.has_prev else '#' }}">
+                  <i class="bi bi-chevron-left"></i> Prev
+                </a>
+              </li>
+
+              <!-- Pages -->
+              {% for p in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if p %}
+                  <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.logs', page=p, event_type=selected_event_type, risk_level=selected_risk_level, status=selected_status, ip=ip_filter, q=search_query, date_from=date_from, date_to=date_to, per_page=per_page) }}">
+                      {{ p }}
+                    </a>
+                  </li>
+                {% else %}
+                  <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                {% endif %}
+              {% endfor %}
+
+              <!-- Next -->
+              <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.logs', page=pagination.next_num, event_type=selected_event_type, risk_level=selected_risk_level, status=selected_status, ip=ip_filter, q=search_query, date_from=date_from, date_to=date_to, per_page=per_page) if pagination.has_next else '#' }}">
+                  Next <i class="bi bi-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state text-center py-5">
+        <i class="bi bi-journal-x empty-state-icon text-muted display-4 mb-3"></i>
+        <h5 class="text-light">No logs found</h5>
+        <p class="text-muted small">No security events match the current filter parameters.</p>
+        {% if selected_event_type or selected_risk_level or selected_status or ip_filter or search_query or date_from or date_to %}
+          <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-secondary mt-2">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset All Filters
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

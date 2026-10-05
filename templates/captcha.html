@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Security Verification — BotGuard CM{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper d-flex align-items-center justify-content-center min-vh-100 py-5">
+  <div class="auth-card glass-card" style="max-width: 480px; width: 100%;">
+
+    <!-- Header -->
+    <div class="auth-header text-center mb-4">
+      <div class="auth-icon-ring mb-3">
+        <i class="bi bi-shield-check auth-icon text-accent"></i>
+      </div>
+      <h1 class="auth-title">Security Challenge</h1>
+      <p class="auth-subtitle text-muted">Complete the CAPTCHA verification to confirm you are human</p>
+    </div>
+
+    <!-- Security alert info -->
+    <div class="alert alert-dark border-secondary d-flex align-items-center gap-2 mb-4 py-2 px-3 rounded-3" role="alert">
+      <i class="bi bi-info-circle-fill text-info flex-shrink-0"></i>
+      <span class="small text-muted">
+        This automated challenge protects the system from bot automation and unauthorized scraping.
+      </span>
+    </div>
+
+    <!-- Form -->
+    <form method="POST" action="{{ url_for('captcha.challenge', next=request.args.get('next')) }}"
+          id="captchaForm" novalidate autocomplete="off">
+      {{ form.hidden_tag() }}  {# CSRF token #}
+
+      <!-- CAPTCHA Display Card -->
+      <div class="mb-4">
+        <label class="form-label fw-medium d-flex justify-content-between align-items-center">
+          <span>
+            <i class="bi bi-card-image me-1 text-accent"></i>Verification Image
+          </span>
+          <span class="badge bg-secondary-subtle text-secondary small" id="captchaTimerNotice">
+            <i class="bi bi-clock me-1"></i>Expires in 2 min
+          </span>
+        </label>
+
+        <div class="captcha-box p-3 rounded-3 bg-dark border border-secondary d-flex flex-column align-items-center gap-3">
+          <div class="captcha-img-wrapper position-relative text-center w-100">
+            <img src="{{ captcha_image }}"
+                 alt="CAPTCHA Verification Challenge"
+                 id="captchaImage"
+                 class="img-fluid rounded border border-secondary shadow-sm"
+                 style="min-height: 70px; max-width: 100%; object-fit: contain;" />
+          </div>
+
+          <div class="d-flex w-100 justify-content-between align-items-center">
+            <span class="text-muted small">
+              <i class="bi bi-keyboard me-1"></i>Case-insensitive
+            </span>
+            <a href="{{ url_for('captcha.refresh', next=request.args.get('next')) }}"
+               class="btn btn-sm btn-outline-info d-flex align-items-center gap-1"
+               id="refreshCaptchaBtn"
+               title="Load a new CAPTCHA challenge">
+              <i class="bi bi-arrow-clockwise"></i>
+              <span>Refresh Image</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTCHA Input -->
+      <div class="mb-4">
+        <label for="captcha_input" class="form-label fw-medium">
+          <i class="bi bi-input-cursor-text me-1 text-accent"></i>{{ form.captcha_input.label.text }}
+        </label>
+        {{ form.captcha_input(
+              class="form-control bcms-input text-uppercase font-mono text-center fs-5 tracking-wide" ~ (" is-invalid" if form.captcha_input.errors else ""),
+              id="captcha_input",
+              autofocus=true,
+              maxlength=32
+           ) }}
+        {% for error in form.captcha_input.errors %}
+          <div class="invalid-feedback text-center">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Submit button -->
+      {{ form.submit(class="btn btn-accent w-100 btn-login", id="captchaSubmitBtn") }}
+    </form>
+
+    <!-- Cancel / Back -->
+    <div class="text-center mt-4">
+      <a href="{{ url_for('index') }}" class="text-muted small text-decoration-none" id="cancelCaptchaLink">
+        <i class="bi bi-arrow-left me-1"></i>Return to Home
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const refreshBtn = document.getElementById('refreshCaptchaBtn');
+  const captchaImg = document.getElementById('captchaImage');
+  if (refreshBtn && captchaImg) {
+    refreshBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const resp = await fetch('{{ url_for("captcha.refresh") }}?format=json');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.captcha_image) {
+            captchaImg.src = data.captcha_image;
+          }
+        }
+      } catch (err) {
+        window.location.href = refreshBtn.href;
+      }
+    });
+  }
+</script>
+{% endblock %}

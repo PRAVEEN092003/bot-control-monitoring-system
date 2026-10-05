@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}User Directory — BotGuard CM Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Top Header ──────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-0 d-inline-flex align-items-center">
+        <i class="bi bi-people-fill me-2 text-accent"></i>User Accounts
+      </h1>
+      <p class="text-muted small mb-0">Registered accounts, roles, and authentication security status</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-secondary-subtle text-light border border-secondary px-3 py-2 rounded-pill">
+        <strong>{{ total_users }}</strong> Accounts Registered
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Admin Navigation Sub-bar ─────────────────────────────────────────── -->
+  <div class="glass-card p-2 mb-4">
+    <ul class="nav nav-pills gap-1">
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.dashboard') }}">
+          <i class="bi bi-speedometer2 me-1"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.logs') }}">
+          <i class="bi bi-journal-text me-1"></i>Security Logs
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('admin.users') }}">
+          <i class="bi bi-people me-1"></i>Users
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.blocked_ips') }}">
+          <i class="bi bi-slash-circle me-1"></i>Blocked IPs
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── Table Card ──────────────────────────────────────────────────────── -->
+  <div class="glass-card p-4">
+    <div class="table-responsive">
+      <table class="table table-dark table-hover bcms-table align-middle mb-0" id="adminUsersTable">
+        <thead>
+          <tr>
+            <th style="width: 5%;">ID</th>
+            <th style="width: 20%;">Username</th>
+            <th style="width: 25%;">Email</th>
+            <th style="width: 12%;">Role</th>
+            <th style="width: 10%;">Status</th>
+            <th style="width: 13%;">Failed Logins</th>
+            <th style="width: 15%;">Last Login</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="font-mono text-muted small">#{{ u.id }}</td>
+            <td class="fw-medium font-mono text-light">
+              <span class="user-avatar me-2 d-inline-flex" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                {{ u.username[0]|upper }}
+              </span>
+              {{ u.username }}
+            </td>
+            <td>{{ u.email }}</td>
+            <td>
+              {% if u.is_admin %}
+                <span class="badge badge-admin">Admin</span>
+              {% else %}
+                <span class="badge badge-user">User</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-danger">Disabled</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge {{ 'bg-danger' if u.failed_login_count > 0 else 'bg-secondary-subtle text-muted' }}">
+                {{ u.failed_login_count }}
+              </span>
+            </td>
+            <td class="text-muted small font-mono">
+              {% if u.last_login %}
+                {{ u.last_login.strftime('%d %b %Y, %H:%M') }}
+              {% else %}
+                <span class="text-muted">Never</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

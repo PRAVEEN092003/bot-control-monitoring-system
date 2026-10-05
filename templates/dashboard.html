@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — BotGuard CM{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Page header ──────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-0">
+        <i class="bi bi-grid-1x2-fill me-2 text-accent"></i>My Dashboard
+      </h1>
+      <p class="text-muted small mb-0">Your account overview and recent security events</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user.is_admin %}
+        <span class="badge badge-admin fs-sm">
+          <i class="bi bi-shield-fill-check me-1"></i>Admin
+        </span>
+      {% endif %}
+      <span class="status-indicator status-ok">
+        <i class="bi bi-circle-fill me-1"></i>Active
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Stat cards ───────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+
+    <!-- Account status -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-success-subtle">
+          <i class="bi bi-person-check-fill text-success"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Account Status</p>
+          <p class="stat-value text-success">Active</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Last login -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-primary-subtle">
+          <i class="bi bi-calendar-check-fill text-primary"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Last Login</p>
+          <p class="stat-value small">
+            {% if user.last_login %}
+              {{ user.last_login.strftime('%d %b %Y, %H:%M') }} UTC
+            {% else %}
+              <span class="text-muted">First login</span>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Failed logins -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-warning-subtle">
+          <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Total Failed Login Attempts</p>
+          <p class="stat-value {{ 'text-danger' if (total_failed_logins or 0) > 0 else 'text-success' }}" id="totalFailedLogins">
+            {{ total_failed_logins or 0 }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Member since -->
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-info-subtle">
+          <i class="bi bi-award-fill text-info"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Member Since</p>
+          <p class="stat-value small">{{ user.created_at.strftime('%d %b %Y') }}</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Account info + recent activity ──────────────────────────────────── -->
+  <div class="row g-3">
+
+    <!-- Account information card -->
+    <div class="col-12 col-lg-4">
+      <div class="glass-card h-100 p-4">
+        <h2 class="card-section-title mb-3">
+          <i class="bi bi-person-circle me-2 text-accent"></i>Account Info
+        </h2>
+        <ul class="list-unstyled account-info-list">
+          <li class="account-info-item">
+            <span class="info-label">Username</span>
+            <span class="info-value font-mono">{{ user.username }}</span>
+          </li>
+          <li class="account-info-item">
+            <span class="info-label">Email</span>
+            <span class="info-value">{{ user.email }}</span>
+          </li>
+          <li class="account-info-item">
+            <span class="info-label">Role</span>
+            <span class="info-value">
+              {% if user.is_admin %}
+                <span class="badge badge-admin">Administrator</span>
+              {% else %}
+                <span class="badge badge-user">User</span>
+              {% endif %}
+            </span>
+          </li>
+          <li class="account-info-item">
+            <span class="info-label">Status</span>
+            <span class="info-value">
+              {% if user.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-danger">Inactive</span>
+              {% endif %}
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Recent activity -->
+    <div class="col-12 col-lg-8">
+      <div class="glass-card h-100 p-4">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <h2 class="card-section-title mb-0">
+            <i class="bi bi-activity me-2 text-accent"></i>Recent Security Events
+          </h2>
+          <a href="{{ url_for('user.activity') }}" class="btn btn-sm btn-outline-info" id="viewAllActivityBtn">
+            <i class="bi bi-list-ul me-1"></i>View Full Audit Log
+          </a>
+        </div>
+
+        {% if recent_activity %}
+          <div class="table-responsive">
+            <table class="table table-dark table-hover bcms-table mb-0" id="recentActivityTable">
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Status</th>
+                  <th>Risk</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for log in recent_activity %}
+                <tr>
+                  <td>
+                    <span class="event-type-badge event-{{ log.event_type }}">
+                      {{ log.event_type | replace('_', ' ') | title }}
+                    </span>
+                    {% if log.description %}
+                      <div class="text-muted small mt-1">{{ log.description[:80] }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="badge status-badge status-{{ log.status }}">
+                      {{ log.status | title }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge risk-badge risk-{{ log.risk_level }}">
+                      {{ log.risk_level }}
+                    </span>
+                  </td>
+                  <td class="text-muted small">
+                    {{ log.created_at.strftime('%d %b %H:%M') }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state text-center py-4">
+            <i class="bi bi-shield-check empty-state-icon text-success"></i>
+            <p class="text-muted mt-2">No security events recorded yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

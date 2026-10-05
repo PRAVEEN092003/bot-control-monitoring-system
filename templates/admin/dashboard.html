@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard — BotGuard CM{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Top Admin Header ────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-0 d-inline-flex align-items-center">
+        <i class="bi bi-shield-lock-fill me-2 text-accent"></i>Admin Security Dashboard
+      </h1>
+      <p class="text-muted small mb-0">Live cybersecurity monitoring, bot detection, and threat intelligence</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge badge-admin px-3 py-2 rounded-pill fs-sm">
+        <i class="bi bi-shield-shaded me-1"></i>Admin Console
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Admin Navigation Sub-bar ─────────────────────────────────────────── -->
+  <div class="glass-card p-2 mb-4">
+    <ul class="nav nav-pills gap-1">
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('admin.dashboard') }}" id="adminNavDashboard">
+          <i class="bi bi-speedometer2 me-1"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.logs') }}" id="adminNavLogs">
+          <i class="bi bi-journal-text me-1"></i>Security Logs
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.users') }}" id="adminNavUsers">
+          <i class="bi bi-people me-1"></i>Users
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.blocked_ips') }}" id="adminNavBlockedIPs">
+          <i class="bi bi-slash-circle me-1"></i>Blocked IPs
+          {% if metrics.blocked_ips_count > 0 %}
+            <span class="badge bg-danger ms-1">{{ metrics.blocked_ips_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── 6 KPI Stat Cards ─────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+
+    <!-- 1. Total Users -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-primary-subtle">
+          <i class="bi bi-people-fill text-primary"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Total Users</p>
+          <p class="stat-value">{{ metrics.total_users }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Total Security Events -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-info-subtle">
+          <i class="bi bi-activity text-info"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Security Events</p>
+          <p class="stat-value">{{ metrics.total_events }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. CAPTCHA Success / Fail -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-success-subtle">
+          <i class="bi bi-card-checklist text-success"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">CAPTCHA Solved</p>
+          <p class="stat-value text-success">
+            {{ metrics.captcha_successes }}
+            <span class="fs-xs text-danger fw-normal">({{ metrics.captcha_failures }} fail)</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Suspicious Activity -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-warning-subtle">
+          <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Suspicious</p>
+          <p class="stat-value text-warning">{{ metrics.suspicious_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. High-Risk Activity -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-danger-subtle">
+          <i class="bi bi-shield-fill-x text-danger"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">High Risk</p>
+          <p class="stat-value text-danger">{{ metrics.high_risk_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Blocked IPs -->
+    <div class="col-12 col-sm-6 col-xl-2">
+      <div class="stat-card glass-card h-100">
+        <div class="stat-card-icon bg-danger-subtle">
+          <i class="bi bi-slash-circle-fill text-danger"></i>
+        </div>
+        <div class="stat-card-body">
+          <p class="stat-label">Blocked IPs</p>
+          <p class="stat-value {{ 'text-danger' if metrics.blocked_ips_count > 0 else 'text-success' }}">
+            {{ metrics.blocked_ips_count }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── 3 Chart.js Visualizations ────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+
+    <!-- Chart 1: Security Event Distribution -->
+    <div class="col-12 col-lg-5">
+      <div class="glass-card h-100 p-3">
+        <h3 class="card-section-title mb-3 fs-6">
+          <i class="bi bi-bar-chart-fill me-2 text-accent"></i>Security Event Distribution
+        </h3>
+        <div style="position: relative; height: 240px;">
+          <canvas id="eventChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart 2: Risk Level Distribution -->
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="glass-card h-100 p-3">
+        <h3 class="card-section-title mb-3 fs-6">
+          <i class="bi bi-pie-chart-fill me-2 text-accent"></i>Risk Level Breakdown
+        </h3>
+        <div style="position: relative; height: 240px;">
+          <canvas id="riskChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart 3: CAPTCHA Success vs Failure -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="glass-card h-100 p-3">
+        <h3 class="card-section-title mb-3 fs-6">
+          <i class="bi bi-check2-circle me-2 text-accent"></i>CAPTCHA Outcomes
+        </h3>
+        <div style="position: relative; height: 240px;">
+          <canvas id="captchaChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Filter Bar & Recent Security Events Table ────────────────────────── -->
+  <div class="glass-card p-4 mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <h2 class="card-section-title mb-0">
+        <i class="bi bi-activity me-2 text-accent"></i>Recent Security Activity
+      </h2>
+      <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-info" id="viewAllLogsBtn">
+        <i class="bi bi-list-ul me-1"></i>View Full Audit Log
+      </a>
+    </div>
+
+    <!-- Filter Form -->
+    <form method="GET" action="{{ url_for('admin.dashboard') }}" class="row g-2 mb-3" id="adminFilterForm">
+      <div class="col-12 col-md-4 col-lg-3">
+        <select name="event_type" id="filterEventType" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_event_type or selected_event_type == 'all' %}selected{% endif %}>All Event Types</option>
+          <option value="login_success" {% if selected_event_type == 'login_success' %}selected{% endif %}>Login Success</option>
+          <option value="login_failure" {% if selected_event_type == 'login_failure' %}selected{% endif %}>Login Failure</option>
+          <option value="logout" {% if selected_event_type == 'logout' %}selected{% endif %}>Logout</option>
+          <option value="register_success" {% if selected_event_type == 'register_success' %}selected{% endif %}>Registration</option>
+          <option value="captcha_success" {% if selected_event_type == 'captcha_success' %}selected{% endif %}>CAPTCHA Success</option>
+          <option value="captcha_failure" {% if selected_event_type == 'captcha_failure' %}selected{% endif %}>CAPTCHA Failure</option>
+          <option value="bot_detected" {% if selected_event_type == 'bot_detected' %}selected{% endif %}>Bot Detected</option>
+          <option value="rate_limit_exceeded" {% if selected_event_type == 'rate_limit_exceeded' %}selected{% endif %}>Rate Limit Exceeded</option>
+          <option value="ip_blocked" {% if selected_event_type == 'ip_blocked' %}selected{% endif %}>IP Blocked</option>
+          <option value="ip_unblocked" {% if selected_event_type == 'ip_unblocked' %}selected{% endif %}>IP Unblocked</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-3 col-lg-2">
+        <select name="risk_level" id="filterRiskLevel" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_risk_level or selected_risk_level == 'all' %}selected{% endif %}>All Risk Levels</option>
+          <option value="NORMAL" {% if selected_risk_level == 'NORMAL' %}selected{% endif %}>NORMAL</option>
+          <option value="SUSPICIOUS" {% if selected_risk_level == 'SUSPICIOUS' %}selected{% endif %}>SUSPICIOUS</option>
+          <option value="HIGH_RISK" {% if selected_risk_level == 'HIGH_RISK' %}selected{% endif %}>HIGH_RISK</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-3 col-lg-3">
+        <input type="text" name="q" id="filterSearch" class="form-control form-control-sm bcms-input"
+               placeholder="Search IP or keyword..." value="{{ search_query or '' }}" />
+      </div>
+
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-accent" id="applyAdminFilterBtn">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        {% if selected_event_type or selected_risk_level or search_query %}
+          <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-secondary" id="clearAdminFilterBtn">
+            <i class="bi bi-x-circle"></i>
+          </a>
+        {% endif %}
+      </div>
+    </form>
+
+    <!-- Table -->
+    {% if recent_events %}
+      <div class="table-responsive">
+        <table class="table table-dark table-hover bcms-table align-middle mb-0" id="adminRecentEventsTable">
+          <thead>
+            <tr>
+              <th style="width: 22%;">Event Type</th>
+              <th style="width: 32%;">Description</th>
+              <th style="width: 15%;">IP Address</th>
+              <th style="width: 10%;">Status</th>
+              <th style="width: 9%;">Risk</th>
+              <th style="width: 12%;">Time (UTC)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in recent_events %}
+            <tr>
+              <td>
+                <span class="event-type-badge event-{{ event.event_type }}">
+                  {{ event.event_type | replace('_', ' ') | title }}
+                </span>
+              </td>
+              <td>
+                <span class="text-light small">{{ event.description or 'No details' }}</span>
+              </td>
+              <td class="font-mono small text-info">
+                {{ event.ip_address }}
+              </td>
+              <td>
+                <span class="badge status-badge status-{{ event.status }}">
+                  {{ event.status | title }}
+                </span>
+              </td>
+              <td>
+                <span class="badge risk-badge risk-{{ event.risk_level }}">
+                  {{ event.risk_level }} ({{ event.risk_score }})
+                </span>
+              </td>
+              <td class="text-muted small font-mono">
+                {{ event.created_at.strftime('%d %b %H:%M:%S') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state text-center py-4">
+        <i class="bi bi-shield-check empty-state-icon text-success"></i>
+        <p class="text-muted mt-2">No security events match the current filter criteria.</p>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Chart.js dark-theme defaults
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = '#334155';
+
+  // 1. Event Distribution Chart
+  const eventData = {{ metrics.event_distribution | tojson }};
+  const eventLabels = Object.keys(eventData).map(k => k.replace(/_/g, ' '));
+  const eventValues = Object.values(eventData);
+
+  new Chart(document.getElementById('eventChart'), {
+    type: 'bar',
+    data: {
+      labels: eventLabels.length ? eventLabels : ['No events'],
+      datasets: [{
+        label: 'Event Count',
+        data: eventValues.length ? eventValues : [0],
+        backgroundColor: [
+          '#38bdf8', '#818cf8', '#34d399', '#f59e0b',
+          '#f43f5e', '#a855f7', '#06b6d4', '#ec4899'
+        ],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+
+  // 2. Risk Level Distribution
+  const riskData = {{ metrics.risk_distribution | tojson }};
+  new Chart(document.getElementById('riskChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['NORMAL', 'SUSPICIOUS', 'HIGH RISK'],
+      datasets: [{
+        data: [
+          riskData['NORMAL'] || 0,
+          riskData['SUSPICIOUS'] || 0,
+          riskData['HIGH_RISK'] || 0
+        ],
+        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+
+  // 3. CAPTCHA Success / Failure
+  const captchaData = {{ metrics.captcha_stats | tojson }};
+  new Chart(document.getElementById('captchaChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Solved (Pass)', 'Failed'],
+      datasets: [{
+        data: [captchaData.success || 0, captchaData.failure || 0],
+        backgroundColor: ['#06b6d4', '#f43f5e'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+</script>
+{% endblock %}

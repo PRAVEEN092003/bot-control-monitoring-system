@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Blocked IP Addresses — BotGuard CM Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Top Header ──────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-0 d-inline-flex align-items-center">
+        <i class="bi bi-slash-circle-fill me-2 text-danger"></i>Blocked IP Management
+      </h1>
+      <p class="text-muted small mb-0">Enforce, monitor, and revoke automated or manual temporary IP blocks</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge {{ 'bg-danger' if active_count > 0 else 'bg-success' }} px-3 py-2 rounded-pill fs-sm">
+        <i class="bi bi-shield-shaded me-1"></i><strong>{{ active_count }}</strong> Active Block{{ 's' if active_count != 1 else '' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Admin Navigation Sub-bar ─────────────────────────────────────────── -->
+  <div class="glass-card p-2 mb-4">
+    <ul class="nav nav-pills gap-1 flex-wrap">
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.dashboard') }}">
+          <i class="bi bi-speedometer2 me-1"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.logs') }}">
+          <i class="bi bi-journal-text me-1"></i>Security Logs
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-light" href="{{ url_for('admin.users') }}">
+          <i class="bi bi-people me-1"></i>Users
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('admin.blocked_ips') }}">
+          <i class="bi bi-slash-circle me-1"></i>Blocked IPs
+          {% if active_count > 0 %}
+            <span class="badge bg-danger ms-1">{{ active_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── Manual Block Form Card ──────────────────────────────────────────── -->
+  <div class="glass-card p-4 mb-4">
+    <h3 class="card-section-title mb-3 fs-6">
+      <i class="bi bi-shield-plus me-2 text-accent"></i>Add Temporary IP Block
+    </h3>
+    <form method="POST" action="{{ url_for('admin.manual_block_ip') }}" class="row g-3 align-items-end" id="manualBlockForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="col-12 col-md-4">
+        <label for="block_ip_address" class="form-label text-muted small fw-medium">IP Address</label>
+        <input type="text" name="ip_address" id="block_ip_address" class="form-control bcms-input font-mono"
+               placeholder="e.g. 198.51.100.45" required />
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label for="block_reason" class="form-label text-muted small fw-medium">Reason / Threat Notes</label>
+        <input type="text" name="reason" id="block_reason" class="form-control bcms-input"
+               placeholder="e.g. Excessive automated bot requests" />
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-2">
+        <label for="block_duration" class="form-label text-muted small fw-medium">Duration (min)</label>
+        <input type="number" name="duration" id="block_duration" class="form-control bcms-input"
+               value="30" min="1" max="1440" />
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-2">
+        <button type="submit" class="btn btn-danger w-100" id="submitBlockBtn">
+          <i class="bi bi-slash-circle me-1"></i>Block IP
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Blocked IPs Table Card ──────────────────────────────────────────── -->
+  <div class="glass-card p-4">
+    <h3 class="card-section-title mb-3 fs-6">
+      <i class="bi bi-list-columns me-2 text-accent"></i>Block Records & Threat History
+    </h3>
+
+    {% if blocks %}
+      <div class="table-responsive">
+        <table class="table table-dark table-hover bcms-table align-middle mb-0" id="blockedIpsTable">
+          <thead>
+            <tr>
+              <th style="width: 16%;">IP Address</th>
+              <th style="width: 26%;">Reason / Notes</th>
+              <th style="width: 10%;">Risk Score</th>
+              <th style="width: 14%;">Status</th>
+              <th style="width: 18%;">Expiry (UTC)</th>
+              <th style="width: 16%; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in blocks %}
+            <tr>
+              <td class="font-mono text-info fw-medium">
+                <i class="bi bi-hdd-network me-1 opacity-50"></i>{{ b.ip_address }}
+              </td>
+              <td>
+                <div class="text-light small">{{ b.reason }}</div>
+                {% if b.admin_note %}
+                  <div class="text-muted fs-xs font-mono mt-1">
+                    <i class="bi bi-chat-left-text me-1"></i>{{ b.admin_note }}
+                  </div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge risk-badge risk-HIGH_RISK">
+                  {{ b.risk_score }}
+                </span>
+              </td>
+              <td>
+                {% if b.is_currently_blocked %}
+                  <span class="badge bg-danger">
+                    <i class="bi bi-shield-slash-fill me-1"></i>Enforced
+                  </span>
+                {% elif not b.active %}
+                  <span class="badge bg-secondary-subtle text-info border border-secondary">
+                    <i class="bi bi-unlock-fill me-1"></i>Unblocked
+                  </span>
+                {% elif b.is_expired %}
+                  <span class="badge bg-secondary-subtle text-muted">
+                    <i class="bi bi-clock-history me-1"></i>Expired
+                  </span>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-muted">Inactive</span>
+                {% endif %}
+              </td>
+              <td class="small font-mono">
+                <div class="{{ 'text-warning fw-medium' if b.is_currently_blocked else 'text-muted' }}">
+                  {{ b.expires_at.strftime('%d %b %Y, %H:%M:%S') }}
+                </div>
+                <div class="fs-xs text-muted">
+                  Blocked: {{ b.blocked_at.strftime('%d %b, %H:%M') }}
+                </div>
+              </td>
+              <td style="text-align: right;">
+                {% if b.is_currently_blocked %}
+                  <form method="POST" action="{{ url_for('admin.manual_unblock_ip') }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="hidden" name="ip_address" value="{{ b.ip_address }}" />
+                    <input type="hidden" name="note" value="Admin manual unblock" />
+                    <button type="submit" class="btn btn-sm btn-outline-success">
+                      <i class="bi bi-unlock me-1"></i>Unblock
+                    </button>
+                  </form>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state text-center py-5">
+        <i class="bi bi-shield-check empty-state-icon text-success display-4 mb-3"></i>
+        <h5 class="text-light">No blocked IPs</h5>
+        <p class="text-muted small">No IP addresses are currently blocked by the security system.</p>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

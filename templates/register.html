@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account — BotGuard CM{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper d-flex align-items-center justify-content-center min-vh-100 py-5">
+  <div class="auth-card glass-card register-card">
+
+    <!-- Header -->
+    <div class="auth-header text-center mb-4">
+      <div class="auth-icon-ring mb-3">
+        <i class="bi bi-person-plus-fill auth-icon"></i>
+      </div>
+      <h1 class="auth-title">Create Account</h1>
+      <p class="auth-subtitle text-muted">Join the security monitoring platform</p>
+    </div>
+
+    <!-- Form -->
+    <form method="POST" action="{{ url_for('auth.register') }}"
+          id="registerForm" novalidate autocomplete="off">
+      {{ form.hidden_tag() }}  {# CSRF token #}
+
+      <!-- Username -->
+      <div class="mb-3">
+        <label for="username" class="form-label fw-medium">
+          <i class="bi bi-person-fill me-1 text-accent"></i>{{ form.username.label.text }}
+        </label>
+        {{ form.username(
+              class="form-control bcms-input" ~ (" is-invalid" if form.username.errors else ""),
+              id="username",
+              autofocus=true
+           ) }}
+        {% for error in form.username.errors %}
+          <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+        <div class="form-text text-muted small">3–64 characters. Letters, numbers, _ . - only.</div>
+      </div>
+
+      <!-- Email -->
+      <div class="mb-3">
+        <label for="email" class="form-label fw-medium">
+          <i class="bi bi-envelope-fill me-1 text-accent"></i>{{ form.email.label.text }}
+        </label>
+        {{ form.email(
+              class="form-control bcms-input" ~ (" is-invalid" if form.email.errors else ""),
+              id="email"
+           ) }}
+        {% for error in form.email.errors %}
+          <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Password -->
+      <div class="mb-3">
+        <label for="password" class="form-label fw-medium">
+          <i class="bi bi-lock-fill me-1 text-accent"></i>{{ form.password.label.text }}
+        </label>
+        <div class="input-group">
+          {{ form.password(
+                class="form-control bcms-input" ~ (" is-invalid" if form.password.errors else ""),
+                id="password"
+             ) }}
+          <button class="btn btn-outline-secondary border-0 toggle-pw"
+                  type="button" id="togglePassword"
+                  aria-label="Show / hide password" tabindex="-1">
+            <i class="bi bi-eye-fill" id="togglePwIcon"></i>
+          </button>
+          {% for error in form.password.errors %}
+            <div class="invalid-feedback">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <!-- Password strength meter -->
+        <div class="mt-2">
+          <div class="progress pw-strength-bar" style="height: 4px;">
+            <div class="progress-bar" id="pwStrengthBar" role="progressbar"
+                 style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+          <p class="form-text text-muted small mt-1" id="pwStrengthText">
+            Min 8 chars, uppercase, lowercase, digit, special character.
+          </p>
+        </div>
+      </div>
+
+      <!-- Confirm password -->
+      <div class="mb-4">
+        <label for="confirm_password" class="form-label fw-medium">
+          <i class="bi bi-lock-fill me-1 text-accent"></i>{{ form.confirm_password.label.text }}
+        </label>
+        {{ form.confirm_password(
+              class="form-control bcms-input" ~ (" is-invalid" if form.confirm_password.errors else ""),
+              id="confirm_password"
+           ) }}
+        {% for error in form.confirm_password.errors %}
+          <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Submit -->
+      {{ form.submit(class="btn btn-accent w-100 btn-login", id="registerSubmitBtn") }}
+    </form>
+
+    <!-- Footer link -->
+    <p class="text-center text-muted mt-4 mb-0 small">
+      Already have an account?
+      <a href="{{ url_for('auth.login') }}" class="link-accent" id="goToLoginLink">
+        Sign in here
+      </a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ── Toggle password visibility ──────────────────────────────────────────────
+  const toggleBtn  = document.getElementById('togglePassword');
+  const pwField    = document.getElementById('password');
+  const toggleIcon = document.getElementById('togglePwIcon');
+
+  if (toggleBtn && pwField) {
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = pwField.type === 'password';
+      pwField.type   = isHidden ? 'text' : 'password';
+      toggleIcon.className = isHidden ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill';
+    });
+  }
+
+  // ── Client-side password strength meter (visual aid only) ──────────────────
+  const strengthBar  = document.getElementById('pwStrengthBar');
+  const strengthText = document.getElementById('pwStrengthText');
+
+  function calcStrength(pw) {
+    let score = 0;
+    if (pw.length >= 8)  score += 20;
+    if (pw.length >= 12) score += 10;
+    if (/[A-Z]/.test(pw)) score += 20;
+    if (/[a-z]/.test(pw)) score += 20;
+    if (/\d/.test(pw))    score += 15;
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pw)) score += 15;
+    return Math.min(score, 100);
+  }
+
+  const labels = [
+    { max: 20,  text: 'Very Weak',  cls: 'bg-danger'  },
+    { max: 40,  text: 'Weak',       cls: 'bg-warning'  },
+    { max: 60,  text: 'Fair',       cls: 'bg-info'     },
+    { max: 80,  text: 'Good',       cls: 'bg-primary'  },
+    { max: 100, text: 'Strong',     cls: 'bg-success'  },
+  ];
+
+  if (pwField && strengthBar && strengthText) {
+    pwField.addEventListener('input', () => {
+      const score = calcStrength(pwField.value);
+      strengthBar.style.width = score + '%';
+      strengthBar.setAttribute('aria-valuenow', score);
+
+      const label = labels.find(l => score <= l.max) || labels[labels.length - 1];
+      strengthBar.className = 'progress-bar ' + label.cls;
+      strengthText.textContent = pwField.value ? 'Strength: ' + label.text : 'Min 8 chars, uppercase, lowercase, digit, special character.';
+    });
+  }
+</script>
+{% endblock %}

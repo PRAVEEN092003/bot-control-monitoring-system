@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Security Activity Log — BotGuard CM{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <a href="{{ url_for('user.dashboard') }}" class="btn btn-sm btn-outline-secondary" id="backToDashboardBtn">
+          <i class="bi bi-arrow-left me-1"></i>Dashboard
+        </a>
+        <h1 class="page-title mb-0 d-inline-flex align-items-center">
+          <i class="bi bi-shield-shaded me-2 text-accent"></i>Security Activity Log
+        </h1>
+      </div>
+      <p class="text-muted small mb-0 ms-1">
+        Audit trail of all security-related actions recorded for your account
+      </p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-secondary-subtle text-light border border-secondary px-3 py-2 rounded-pill" id="totalEventsBadge">
+        <i class="bi bi-list-check me-1 text-accent"></i>
+        <strong>{{ total_count }}</strong> Recorded Event{{ 's' if total_count != 1 else '' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Filter Bar Card ─────────────────────────────────────────────────── -->
+  <div class="glass-card p-3 mb-4">
+    <form method="GET" action="{{ url_for('user.activity') }}" class="row g-2 align-items-center" id="activityFilterForm">
+      <div class="col-12 col-md-auto">
+        <label for="event_type" class="form-label text-muted small fw-medium mb-0 me-2">
+          <i class="bi bi-funnel-fill me-1 text-accent"></i>Filter by Event:
+        </label>
+      </div>
+
+      <div class="col-12 col-md-4 col-lg-3">
+        <select name="event_type" id="event_type" class="form-select form-select-sm bcms-input" onchange="this.form.submit()">
+          <option value="all" {% if not selected_filter or selected_filter == 'all' %}selected{% endif %}>
+            All Event Types ({{ total_count }})
+          </option>
+          {% for ev_type, ev_label in event_types %}
+            <option value="{{ ev_type }}" {% if selected_filter == ev_type %}selected{% endif %}>
+              {{ ev_label }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-accent" id="applyFilterBtn">
+          <i class="bi bi-filter me-1"></i>Apply Filter
+        </button>
+        {% if selected_filter and selected_filter != 'all' %}
+          <a href="{{ url_for('user.activity') }}" class="btn btn-sm btn-outline-secondary" id="clearFilterBtn">
+            <i class="bi bi-x-circle me-1"></i>Clear Filter
+          </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Activity Table Card ─────────────────────────────────────────────── -->
+  <div class="glass-card p-4">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <h2 class="card-section-title mb-0">
+        <i class="bi bi-clock-history me-2 text-accent"></i>Recorded Events
+        {% if selected_filter and selected_filter != 'all' %}
+          <span class="badge bg-accent-subtle text-accent small ms-2">
+            Filtered: {{ selected_filter | replace('_', ' ') | title }}
+          </span>
+        {% endif %}
+      </h2>
+    </div>
+
+    {% if events %}
+      <div class="table-responsive">
+        <table class="table table-dark table-hover bcms-table align-middle mb-0" id="userActivityTable">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 25%;">Event Type</th>
+              <th scope="col" style="width: 35%;">Description</th>
+              <th scope="col" style="width: 12%;">Outcome</th>
+              <th scope="col" style="width: 10%;">Risk Level</th>
+              <th scope="col" style="width: 18%;">Timestamp (UTC)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in events %}
+            <tr>
+              <!-- Event Type -->
+              <td>
+                <span class="event-type-badge event-{{ event.event_type }} d-inline-flex align-items-center gap-1">
+                  {% if 'success' in event.event_type %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                  {% elif 'failure' in event.event_type %}
+                    <i class="bi bi-x-circle-fill text-danger"></i>
+                  {% elif 'logout' in event.event_type %}
+                    <i class="bi bi-box-arrow-right text-info"></i>
+                  {% else %}
+                    <i class="bi bi-shield-shaded text-accent"></i>
+                  {% endif %}
+                  {{ event.event_type | replace('_', ' ') | title }}
+                </span>
+              </td>
+
+              <!-- Description & Context -->
+              <td>
+                <div class="text-light small fw-medium">
+                  {{ event.description or 'No additional details.' }}
+                </div>
+                {% if event.ip_address %}
+                  <div class="text-muted small mt-1 font-mono">
+                    <i class="bi bi-geo-alt me-1"></i>IP: {{ event.ip_address }}
+                  </div>
+                {% endif %}
+              </td>
+
+              <!-- Outcome -->
+              <td>
+                <span class="badge status-badge status-{{ event.status }}">
+                  {{ event.status | title }}
+                </span>
+              </td>
+
+              <!-- Risk Level -->
+              <td>
+                <span class="badge risk-badge risk-{{ event.risk_level }}">
+                  {{ event.risk_level }}
+                </span>
+              </td>
+
+              <!-- Timestamp -->
+              <td class="text-muted small font-mono">
+                {{ event.created_at.strftime('%d %b %Y, %H:%M:%S') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state text-center py-5" id="emptyActivityState">
+        <i class="bi bi-shield-check empty-state-icon text-success display-4 mb-3"></i>
+        <h5 class="text-light">No events found</h5>
+        <p class="text-muted small mb-3">
+          {% if selected_filter and selected_filter != 'all' %}
+            No events match the selected filter "<strong>{{ selected_filter | replace('_', ' ') | title }}</strong>".
+          {% else %}
+            No security activity has been logged for your account yet.
+          {% endif %}
+        </p>
+        {% if selected_filter and selected_filter != 'all' %}
+          <a href="{{ url_for('user.activity') }}" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-arrow-repeat me-1"></i>View All Events
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
