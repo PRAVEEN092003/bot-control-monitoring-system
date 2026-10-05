@@ -396,6 +396,3 @@ python -m pytest tests/test_auth.py -v
 
 ---
 
-## License
-
-This project is licensed under the MIT License.
